@@ -1,24 +1,21 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 export async function POST(request: NextRequest) {
+  const token = request.headers.get('authorization')?.replace('Bearer ', '');
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { global: { headers: { Authorization: `Bearer ${token}` } } }
+  );
   const { question } = await request.json();
-
   const { data: entries, error } = await supabase
     .from('entries')
     .select('title, content, category, tags, source');
-
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
   const context = entries?.map(e =>
     `Titel: ${e.title}\nKategorie: ${e.category}\nInhalt: ${e.content}`
   ).join('\n\n---\n\n');
-
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -35,9 +32,7 @@ export async function POST(request: NextRequest) {
       }]
     })
   });
-
   const aiData = await response.json();
   const answer = aiData.content?.[0]?.text || 'Keine Antwort gefunden.';
-
   return NextResponse.json({ answer });
 }

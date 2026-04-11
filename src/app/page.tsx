@@ -1,5 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 interface Entry {
   id: string;
@@ -12,36 +18,109 @@ interface Entry {
   created_at: string;
 }
 
+const CATEGORIES = ['Banking & Regulatorik', 'Investment', 'Reise & Planung', 'Fitness & Sport', 'Persönlich', 'Sonstiges'];
+
 export default function Home() {
+  const [session, setSession] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState('');
   const [entries, setEntries] = useState<Entry[]>([]);
-  const [view, setView] = useState<'list' | 'new' | 'ask'>('list');
+  const [view, setView] = useState<'list' | 'new' | 'ask' | 'edit'>('list');
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
   const [loading, setLoading] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [form, setForm] = useState({ title: '', content: '', category: 'Sonstiges', tags: '', source: '' });
 
-  const categories = ['Banking & Regulatorik', 'Investment', 'Reise & Planung', 'Fitness & Sport', 'Persönlich', 'Sonstiges'];
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
+    supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+  }, []);
 
-  useEffect(() => { loadEntries(); }, []);
+  useEffect(() => {
+    if (session) loadEntries();
+  }, [session]);
 
   const loadEntries = async () => {
-    const res = await fetch('/api/entries');
+    const res = await fetch('/api/entries', {
+      headers: { Authorization: `Bearer ${session?.access_token}` }
+    });
     const data = await res.json();
-    setEntries(data);
+    if (Array.isArray(data)) setEntries(data);
+  };
+
+  const handleLogin = async () => {
+    setAuthError('');
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setAuthError('Login fehlgeschlagen. Bitte prüfe E-Mail und Passwort.');
+  };
+
+  const handleSignUp = async () => {
+    setAuthError('');
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) setAuthError(error.message);
+    else setAuthError('Bestätigungs-E-Mail gesendet! Bitte E-Mail prüfen.');
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setEntries([]);
+    setView('list');
   };
 
   const handleSave = async () => {
     if (!form.title || !form.content) return;
     setLoading(true);
+    let fileUrl = '';
+    if (uploadFile) {
+      const fileName = `${Date.now()}-${uploadFile.name}`;
+      const { data } = await supabase.storage.from('attachments').upload(fileName, uploadFile);
+      if (data) {
+        const { data: urlData } = supabase.storage.from('attachments').getPublicUrl(fileName);
+        fileUrl = urlData.publicUrl;
+      }
+    }
+    const method = editingEntry ? 'PATCH' : 'POST';
     await fetch('/api/entries', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, tags: form.tags.split(',').map(t => t.trim()).filter(Boolean) })
+      method,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({
+        ...(editingEntry ? { id: editingEntry.id } : {}),
+        ...form,
+        tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
+        source: fileUrl || form.source
+      })
     });
     setForm({ title: '', content: '', category: 'Sonstiges', tags: '', source: '' });
+    setUploadFile(null);
+    setEditingEntry(null);
     await loadEntries();
     setLoading(false);
     setView('list');
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Eintrag wirklich löschen?')) return;
+    await fetch('/api/entries', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ id })
+    });
+    await loadEntries();
+  };
+
+  const handleEdit = (entry: Entry) => {
+    setEditingEntry(entry);
+    setForm({ title: entry.title, content: entry.content, category: entry.category, tags: entry.tags?.join(', ') || '', source: entry.source || '' });
+    setView('edit');
   };
 
   const handleAsk = async () => {
@@ -50,7 +129,7 @@ export default function Home() {
     setAnswer('');
     const res = await fetch('/api/search', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
       body: JSON.stringify({ question })
     });
     const data = await res.json();
@@ -58,62 +137,106 @@ export default function Home() {
     setLoading(false);
   };
 
+  if (authLoading) return (
+    <div style={{ minHeight: '100vh', background: '#020817', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#e2e8f0' }}>Lädt…</div>
+  );
+
+  if (!session) return (
+    <div style={{ minHeight: '100vh', background: '#020817', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 32, width: 'min(380px, 90vw)' }}>
+        <h1 style={{ color: '#f1f5f9', fontSize: 22, margin: '0 0 24px', textAlign: 'center' }}>◈ Wissensdatenbank</h1>
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ display: 'block', color: '#64748b', fontSize: 11, marginBottom: 4, textTransform: 'uppercase' }}>E-Mail</label>
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+            style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 10, fontSize: 14, boxSizing: 'border-box', outline: 'none' }} />
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: 'block', color: '#64748b', fontSize: 11, marginBottom: 4, textTransform: 'uppercase' }}>Passwort</label>
+          <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleLogin()}
+            style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 10, fontSize: 14, boxSizing: 'border-box', outline: 'none' }} />
+        </div>
+        {authError && <p style={{ color: authError.includes('gesendet') ? '#4ade80' : '#ef4444', fontSize: 13, margin: '0 0 12px' }}>{authError}</p>}
+        <button onClick={handleLogin} style={{ width: '100%', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 8, padding: '11px', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>
+          Anmelden
+        </button>
+        <button onClick={handleSignUp} style={{ width: '100%', background: 'none', color: '#64748b', border: '1px solid #1e293b', borderRadius: 8, padding: '11px', fontSize: 14, cursor: 'pointer' }}>
+          Konto erstellen
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <main style={{ maxWidth: 680, margin: '0 auto', padding: '20px 16px', fontFamily: 'system-ui, sans-serif', background: '#020817', minHeight: '100vh', color: '#e2e8f0' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>◈ Wissensdatenbank</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => setView('ask')} style={{ background: view === 'ask' ? '#1d4ed8' : '#1e293b', color: '#e2e8f0', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13 }}>💬 Fragen</button>
-          <button onClick={() => setView('new')} style={{ background: view === 'new' ? '#1d4ed8' : '#1e293b', color: '#e2e8f0', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13 }}>+ Neu</button>
-          <button onClick={() => setView('list')} style={{ background: view === 'list' ? '#1d4ed8' : '#1e293b', color: '#e2e8f0', border: 'none', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', fontSize: 13 }}>📋 Liste</button>
+        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>◈ Wissensdatenbank</h1>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={() => setView('ask')} style={{ background: view === 'ask' ? '#1d4ed8' : '#1e293b', color: '#e2e8f0', border: 'none', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontSize: 12 }}>💬 Fragen</button>
+          <button onClick={() => { setEditingEntry(null); setForm({ title: '', content: '', category: 'Sonstiges', tags: '', source: '' }); setView('new'); }} style={{ background: view === 'new' ? '#1d4ed8' : '#1e293b', color: '#e2e8f0', border: 'none', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontSize: 12 }}>+ Neu</button>
+          <button onClick={() => setView('list')} style={{ background: view === 'list' ? '#1d4ed8' : '#1e293b', color: '#e2e8f0', border: 'none', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontSize: 12 }}>📋 Liste</button>
+          <button onClick={handleLogout} style={{ background: 'none', color: '#64748b', border: '1px solid #1e293b', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontSize: 12 }}>Logout</button>
         </div>
       </div>
 
       {view === 'ask' && (
         <div style={{ background: '#0f172a', borderRadius: 12, padding: 20, marginBottom: 20 }}>
           <h2 style={{ margin: '0 0 16px', fontSize: 16 }}>Wissen abfragen</h2>
-          <textarea
-            placeholder="Stelle eine Frage zu deinem gespeicherten Wissen..."
-            value={question}
-            onChange={e => setQuestion(e.target.value)}
-            style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 12, fontSize: 14, minHeight: 80, resize: 'vertical', boxSizing: 'border-box', outline: 'none' }}
-          />
+          <textarea placeholder="Stelle eine Frage zu deinem Wissen…" value={question} onChange={e => setQuestion(e.target.value)}
+            style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 12, fontSize: 14, minHeight: 80, resize: 'vertical', boxSizing: 'border-box', outline: 'none' }} />
           <button onClick={handleAsk} disabled={loading} style={{ marginTop: 10, background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 600 }}>
-            {loading ? '⟳ Suche...' : '✦ Antwort generieren'}
+            {loading ? '⟳ Suche…' : '✦ Antwort generieren'}
           </button>
           {answer && (
-            <div style={{ marginTop: 16, background: '#020817', border: '1px solid #1e3a5f', borderRadius: 8, padding: 16, fontSize: 14, lineHeight: 1.7, color: '#94a3b8' }}>
-              {answer}
-            </div>
+            <div style={{ marginTop: 16, background: '#020817', border: '1px solid #1e3a5f', borderRadius: 8, padding: 16, fontSize: 14, lineHeight: 1.7, color: '#94a3b8' }}>{answer}</div>
           )}
         </div>
       )}
 
-      {view === 'new' && (
+      {(view === 'new' || view === 'edit') && (
         <div style={{ background: '#0f172a', borderRadius: 12, padding: 20, marginBottom: 20 }}>
-          <h2 style={{ margin: '0 0 16px', fontSize: 16 }}>Neuer Eintrag</h2>
-          {['title', 'content', 'source'].map(field => (
-            <div key={field} style={{ marginBottom: 12 }}>
-              <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4, textTransform: 'uppercase' }}>{field === 'title' ? 'Titel' : field === 'content' ? 'Inhalt' : 'Quelle / Link'}</label>
-              {field === 'content'
-                ? <textarea value={form[field as keyof typeof form]} onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))} style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 10, fontSize: 14, minHeight: 100, resize: 'vertical', boxSizing: 'border-box', outline: 'none' }} />
-                : <input value={form[field as keyof typeof form]} onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))} style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 10, fontSize: 14, boxSizing: 'border-box', outline: 'none' }} />
-              }
-            </div>
-          ))}
+          <h2 style={{ margin: '0 0 16px', fontSize: 16 }}>{view === 'new' ? 'Neuer Eintrag' : 'Eintrag bearbeiten'}</h2>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4, textTransform: 'uppercase' }}>Titel</label>
+            <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+              style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 10, fontSize: 14, boxSizing: 'border-box', outline: 'none' }} />
+          </div>
           <div style={{ marginBottom: 12 }}>
             <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4, textTransform: 'uppercase' }}>Kategorie</label>
-            <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 10, fontSize: 14, outline: 'none' }}>
-              {categories.map(c => <option key={c}>{c}</option>)}
+            <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+              style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 10, fontSize: 14, outline: 'none' }}>
+              {CATEGORIES.map(c => <option key={c}>{c}</option>)}
             </select>
           </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4, textTransform: 'uppercase' }}>Tags (kommagetrennt)</label>
-            <input value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} placeholder="z.B. basel4, regulatorik, schweiz" style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 10, fontSize: 14, boxSizing: 'border-box', outline: 'none' }} />
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4, textTransform: 'uppercase' }}>Inhalt</label>
+            <textarea value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
+              style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 10, fontSize: 14, minHeight: 100, resize: 'vertical', boxSizing: 'border-box', outline: 'none' }} />
           </div>
-          <button onClick={handleSave} disabled={loading} style={{ background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 600 }}>
-            {loading ? '⟳ Speichert...' : 'Eintrag speichern'}
-          </button>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4, textTransform: 'uppercase' }}>Tags (kommagetrennt)</label>
+            <input value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} placeholder="z.B. basel4, regulatorik"
+              style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 10, fontSize: 14, boxSizing: 'border-box', outline: 'none' }} />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4, textTransform: 'uppercase' }}>Quelle / Link</label>
+            <input value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))} placeholder="https://…"
+              style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 10, fontSize: 14, boxSizing: 'border-box', outline: 'none' }} />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4, textTransform: 'uppercase' }}>Datei / Bild hochladen</label>
+            <input type="file" accept="image/*,.pdf,.txt,.md" onChange={e => setUploadFile(e.target.files?.[0] || null)}
+              style={{ color: '#94a3b8', fontSize: 13 }} />
+            {uploadFile && <p style={{ color: '#4ade80', fontSize: 12, margin: '4px 0 0' }}>✓ {uploadFile.name}</p>}
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={handleSave} disabled={loading} style={{ background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 600 }}>
+              {loading ? '⟳ Speichert…' : 'Speichern'}
+            </button>
+            <button onClick={() => setView('list')} style={{ background: 'none', color: '#64748b', border: '1px solid #1e293b', borderRadius: 8, padding: '10px 16px', cursor: 'pointer', fontSize: 14 }}>
+              Abbrechen
+            </button>
+          </div>
         </div>
       )}
 
@@ -124,11 +247,18 @@ export default function Home() {
             <div key={entry.id} style={{ background: '#0f172a', borderRadius: 12, padding: 16, marginBottom: 12, borderLeft: '3px solid #1d4ed8' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span style={{ background: '#1e293b', color: '#94a3b8', fontSize: 11, padding: '2px 8px', borderRadius: 4 }}>{entry.category}</span>
-                <span style={{ color: '#475569', fontSize: 11 }}>{new Date(entry.created_at).toLocaleDateString('de-CH')}</span>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button onClick={() => handleEdit(entry)} style={{ background: 'none', border: '1px solid #1e293b', color: '#64748b', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', fontSize: 11 }}>✏️</button>
+                  <button onClick={() => handleDelete(entry.id)} style={{ background: 'none', border: '1px solid #450a0a44', color: '#ef4444', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', fontSize: 11 }}>🗑️</button>
+                </div>
               </div>
               <h3 style={{ margin: '0 0 6px', fontSize: 15, color: '#f1f5f9' }}>{entry.title}</h3>
-              {entry.summary && <p style={{ margin: '0 0 8px', fontSize: 13, color: '#94a3b8', fontStyle: 'italic' }}>{entry.summary}</p>}
-              <p style={{ margin: 0, fontSize: 13, color: '#64748b', lineHeight: 1.6 }}>{entry.content.slice(0, 200)}{entry.content.length > 200 ? '…' : ''}</p>
+              <p style={{ margin: '0 0 8px', fontSize: 13, color: '#64748b', lineHeight: 1.6 }}>{entry.content.slice(0, 200)}{entry.content.length > 200 ? '…' : ''}</p>
+              {entry.source && (
+                <a href={entry.source} target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', fontSize: 12 }}>
+                  🔗 {entry.source.slice(0, 50)}{entry.source.length > 50 ? '…' : ''}
+                </a>
+              )}
               {entry.tags?.length > 0 && (
                 <div style={{ marginTop: 8, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                   {entry.tags.map(t => <span key={t} style={{ background: '#1e293b', color: '#64748b', fontSize: 11, padding: '2px 6px', borderRadius: 4 }}>#{t}</span>)}
@@ -141,4 +271,3 @@ export default function Home() {
     </main>
   );
 }
-
