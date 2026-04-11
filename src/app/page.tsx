@@ -79,7 +79,6 @@ export default function Home() {
   const handleSave = async () => {
     if (!form.title || !form.content) return;
     setLoading(true);
-
     if (editingEntry) {
       await fetch('/api/entries', {
         method: 'PATCH',
@@ -98,33 +97,12 @@ export default function Home() {
       formData.append('tags', JSON.stringify(form.tags.split(',').map(t => t.trim()).filter(Boolean)));
       formData.append('source', form.source);
       if (uploadFile) formData.append('file', uploadFile);
-
       await fetch('/api/entries', {
         method: 'POST',
         headers: { Authorization: `Bearer ${session?.access_token}` },
         body: formData
       });
     }
-
-    setForm({ title: '', content: '', category: 'Sonstiges', tags: '', source: '' });
-    setUploadFile(null);
-    setEditingEntry(null);
-    await loadEntries();
-    setLoading(false);
-    setView('list');
-  };
-    }
-    const method = editingEntry ? 'PATCH' : 'POST';
-    await fetch('/api/entries', {
-      method,
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-      body: JSON.stringify({
-        ...(editingEntry ? { id: editingEntry.id } : {}),
-        ...form,
-        tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
-        source: fileUrl || form.source
-      })
-    });
     setForm({ title: '', content: '', category: 'Sonstiges', tags: '', source: '' });
     setUploadFile(null);
     setEditingEntry(null);
@@ -253,11 +231,11 @@ export default function Home() {
             <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4, textTransform: 'uppercase' }}>Datei / Bild hochladen</label>
             <input type="file" accept="image/*,.pdf,.txt,.md" onChange={e => setUploadFile(e.target.files?.[0] || null)}
               style={{ color: '#94a3b8', fontSize: 13 }} />
-            {uploadFile && <p style={{ color: '#4ade80', fontSize: 12, margin: '4px 0 0' }}>✓ {uploadFile.name}</p>}
+            {uploadFile && <p style={{ color: '#4ade80', fontSize: 12, margin: '4px 0 0' }}>✓ {uploadFile.name} — wird von KI analysiert</p>}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={handleSave} disabled={loading} style={{ background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 600 }}>
-              {loading ? '⟳ Speichert…' : 'Speichern'}
+              {loading ? '⟳ Analysiert & speichert…' : 'Speichern'}
             </button>
             <button onClick={() => setView('list')} style={{ background: 'none', color: '#64748b', border: '1px solid #1e293b', borderRadius: 8, padding: '10px 16px', cursor: 'pointer', fontSize: 14 }}>
               Abbrechen
