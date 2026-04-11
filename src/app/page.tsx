@@ -79,14 +79,40 @@ export default function Home() {
   const handleSave = async () => {
     if (!form.title || !form.content) return;
     setLoading(true);
-    let fileUrl = '';
-    if (uploadFile) {
-      const fileName = `${Date.now()}-${uploadFile.name}`;
-      const { data } = await supabase.storage.from('attachments').upload(fileName, uploadFile);
-      if (data) {
-        const { data: urlData } = supabase.storage.from('attachments').getPublicUrl(fileName);
-        fileUrl = urlData.publicUrl;
-      }
+
+    if (editingEntry) {
+      await fetch('/api/entries', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({
+          id: editingEntry.id,
+          ...form,
+          tags: form.tags.split(',').map(t => t.trim()).filter(Boolean)
+        })
+      });
+    } else {
+      const formData = new FormData();
+      formData.append('title', form.title);
+      formData.append('content', form.content);
+      formData.append('category', form.category);
+      formData.append('tags', JSON.stringify(form.tags.split(',').map(t => t.trim()).filter(Boolean)));
+      formData.append('source', form.source);
+      if (uploadFile) formData.append('file', uploadFile);
+
+      await fetch('/api/entries', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+        body: formData
+      });
+    }
+
+    setForm({ title: '', content: '', category: 'Sonstiges', tags: '', source: '' });
+    setUploadFile(null);
+    setEditingEntry(null);
+    await loadEntries();
+    setLoading(false);
+    setView('list');
+  };
     }
     const method = editingEntry ? 'PATCH' : 'POST';
     await fetch('/api/entries', {
