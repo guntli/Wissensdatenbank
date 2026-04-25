@@ -1,7 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
-  const { content } = await request.json();
+  const { content, mimeType, base64 } = await request.json();
+
+  let messages;
+
+  if (base64 && mimeType) {
+    const safeMimeType = mimeType.includes('heic') || mimeType.includes('heif')
+      ? 'image/jpeg'
+      : mimeType.startsWith('image/') ? mimeType : 'image/jpeg';
+
+    messages = [{
+      role: 'user',
+      content: [
+        { type: 'image', source: { type: 'base64', media_type: safeMimeType, data: base64 } },
+        { type: 'text', text: 'Beschreibe und extrahiere alle Informationen aus diesem Bild auf Deutsch. Was ist zu sehen? Welcher Text ist vorhanden? Fasse alles zusammen.' }
+      ]
+    }];
+  } else {
+    messages = [{ role: 'user', content }];
+  }
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -13,7 +31,7 @@ export async function POST(request: NextRequest) {
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1500,
-      messages: [{ role: 'user', content }]
+      messages
     })
   });
 
