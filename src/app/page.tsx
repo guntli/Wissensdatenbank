@@ -31,6 +31,7 @@ export default function Home() {
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
   const [loading, setLoading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [form, setForm] = useState({ title: '', content: '', category: 'Sonstiges', tags: '', source: '' });
@@ -40,19 +41,13 @@ export default function Home() {
       setSession(session);
       setAuthLoading(false);
     });
-    supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
+    supabase.auth.onAuthStateChange((_event, session) => setSession(session));
   }, []);
 
-  useEffect(() => {
-    if (session) loadEntries();
-  }, [session]);
+  useEffect(() => { if (session) loadEntries(); }, [session]);
 
   const loadEntries = async () => {
-    const res = await fetch('/api/entries', {
-      headers: { Authorization: `Bearer ${session?.access_token}` }
-    });
+    const res = await fetch('/api/entries', { headers: { Authorization: `Bearer ${session?.access_token}` } });
     const data = await res.json();
     if (Array.isArray(data)) setEntries(data);
   };
@@ -70,10 +65,50 @@ export default function Home() {
     else setAuthError('Bestätigungs-E-Mail gesendet! Bitte E-Mail prüfen.');
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setEntries([]);
-    setView('list');
+  const handleLogout = async () => { await supabase.auth.signOut(); setEntries([]); setView('list'); };
+
+  const handleAnalyze = async () => {
+    if (!uploadFile) return;
+    setAnalyzing(true);
+    try {
+      const base64 = await new Promise<string>((res, rej) => {
+        const reader = new FileReader();
+        reader.onload = () => res((reader.result as string).split(',')[1]);
+        reader.onerror = rej;
+        reader.readAsDataURL(uploadFile);
+      });
+
+      const isImage = uploadFile.type.startsWith('image/');
+      const isPdf = uploadFile.type === 'application/pdf';
+
+      let content: any[];
+      if (isImage) {
+        content = [
+          { type: 'image', source: { type: 'base64', media_type: uploadFile.type, data: base64 } },
+          { type: 'text', text: 'Beschreibe und extrahiere alle Informationen aus diesem Bild auf Deutsch. Was ist zu sehen? Welcher Text ist vorhanden? Fasse alles zusammen.' }
+        ];
+      } else if (isPdf) {
+        content = [
+          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+          { type: 'text', text: 'Fasse den Inhalt dieses Dokuments auf Deutsch zusammen. Extrahiere alle wichtigen Informationen.' }
+        ];
+      } else {
+        const text = await uploadFile.text();
+        content = [{ type: 'text', text: `Fasse folgenden Text auf Deutsch zusammen:\n\n${text.slice(0, 8000)}` }];
+      }
+
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ content })
+      });
+      const data = await response.json();
+      if (data.result) {
+        setForm(f => ({ ...f, content: f.content ? `${f.content}\n\n---\nDateiinhalt:\n${data.result}` : data.result }));
+        if (!form.title) setForm(f => ({ ...f, title: uploadFile.name.replace(/\.[^.]+$/, '') }));
+      }
+    } catch (e) { console.error(e); }
+    setAnalyzing(false);
   };
 
   const handleSave = async () => {
@@ -83,11 +118,7 @@ export default function Home() {
       await fetch('/api/entries', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({
-          id: editingEntry.id,
-          ...form,
-          tags: form.tags.split(',').map(t => t.trim()).filter(Boolean)
-        })
+        body: JSON.stringify({ id: editingEntry.id, ...form, tags: form.tags.split(',').map(t => t.trim()).filter(Boolean) })
       });
     } else {
       const formData = new FormData();
@@ -161,12 +192,8 @@ export default function Home() {
             style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 10, fontSize: 14, boxSizing: 'border-box', outline: 'none' }} />
         </div>
         {authError && <p style={{ color: authError.includes('gesendet') ? '#4ade80' : '#ef4444', fontSize: 13, margin: '0 0 12px' }}>{authError}</p>}
-        <button onClick={handleLogin} style={{ width: '100%', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 8, padding: '11px', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>
-          Anmelden
-        </button>
-        <button onClick={handleSignUp} style={{ width: '100%', background: 'none', color: '#64748b', border: '1px solid #1e293b', borderRadius: 8, padding: '11px', fontSize: 14, cursor: 'pointer' }}>
-          Konto erstellen
-        </button>
+        <button onClick={handleLogin} style={{ width: '100%', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 8, padding: '11px', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>Anmelden</button>
+        <button onClick={handleSignUp} style={{ width: '100%', background: 'none', color: '#64748b', border: '1px solid #1e293b', borderRadius: 8, padding: '11px', fontSize: 14, cursor: 'pointer' }}>Konto erstellen</button>
       </div>
     </div>
   );
@@ -177,7 +204,7 @@ export default function Home() {
         <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>◈ Wissensdatenbank</h1>
         <div style={{ display: 'flex', gap: 6 }}>
           <button onClick={() => setView('ask')} style={{ background: view === 'ask' ? '#1d4ed8' : '#1e293b', color: '#e2e8f0', border: 'none', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontSize: 12 }}>💬 Fragen</button>
-          <button onClick={() => { setEditingEntry(null); setForm({ title: '', content: '', category: 'Sonstiges', tags: '', source: '' }); setView('new'); }} style={{ background: view === 'new' ? '#1d4ed8' : '#1e293b', color: '#e2e8f0', border: 'none', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontSize: 12 }}>+ Neu</button>
+          <button onClick={() => { setEditingEntry(null); setForm({ title: '', content: '', category: 'Sonstiges', tags: '', source: '' }); setUploadFile(null); setView('new'); }} style={{ background: view === 'new' ? '#1d4ed8' : '#1e293b', color: '#e2e8f0', border: 'none', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontSize: 12 }}>+ Neu</button>
           <button onClick={() => setView('list')} style={{ background: view === 'list' ? '#1d4ed8' : '#1e293b', color: '#e2e8f0', border: 'none', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontSize: 12 }}>📋 Liste</button>
           <button onClick={handleLogout} style={{ background: 'none', color: '#64748b', border: '1px solid #1e293b', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontSize: 12 }}>Logout</button>
         </div>
@@ -200,6 +227,23 @@ export default function Home() {
       {(view === 'new' || view === 'edit') && (
         <div style={{ background: '#0f172a', borderRadius: 12, padding: 20, marginBottom: 20 }}>
           <h2 style={{ margin: '0 0 16px', fontSize: 16 }}>{view === 'new' ? 'Neuer Eintrag' : 'Eintrag bearbeiten'}</h2>
+
+          {/* File Upload + Analyze */}
+          <div style={{ marginBottom: 16, background: '#020817', border: '1px solid #1e293b', borderRadius: 8, padding: 14 }}>
+            <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 8, textTransform: 'uppercase' }}>Datei / Bild hochladen</label>
+            <input type="file" accept="image/*,.pdf,.txt,.md" onChange={e => { setUploadFile(e.target.files?.[0] || null); }}
+              style={{ color: '#94a3b8', fontSize: 13, marginBottom: 10, display: 'block' }} />
+            {uploadFile && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ color: '#4ade80', fontSize: 12 }}>✓ {uploadFile.name}</span>
+                <button onClick={handleAnalyze} disabled={analyzing}
+                  style={{ background: analyzing ? '#1e293b' : 'linear-gradient(135deg,#1e3a5f,#0f2942)', color: analyzing ? '#64748b' : '#60a5fa', border: '1px solid #1e40af44', borderRadius: 6, padding: '6px 14px', cursor: analyzing ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 600 }}>
+                  {analyzing ? '⟳ KI analysiert…' : '✦ Mit KI analysieren'}
+                </button>
+              </div>
+            )}
+          </div>
+
           <div style={{ marginBottom: 12 }}>
             <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4, textTransform: 'uppercase' }}>Titel</label>
             <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
@@ -213,33 +257,26 @@ export default function Home() {
             </select>
           </div>
           <div style={{ marginBottom: 12 }}>
-            <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4, textTransform: 'uppercase' }}>Inhalt</label>
+            <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4, textTransform: 'uppercase' }}>Inhalt / KI-Analyse</label>
             <textarea value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
-              style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 10, fontSize: 14, minHeight: 100, resize: 'vertical', boxSizing: 'border-box', outline: 'none' }} />
+              placeholder="Direkt eingeben oder Datei hochladen und analysieren lassen…"
+              style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 10, fontSize: 14, minHeight: 120, resize: 'vertical', boxSizing: 'border-box', outline: 'none' }} />
           </div>
           <div style={{ marginBottom: 12 }}>
             <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4, textTransform: 'uppercase' }}>Tags (kommagetrennt)</label>
             <input value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} placeholder="z.B. basel4, regulatorik"
               style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 10, fontSize: 14, boxSizing: 'border-box', outline: 'none' }} />
           </div>
-          <div style={{ marginBottom: 12 }}>
+          <div style={{ marginBottom: 16 }}>
             <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4, textTransform: 'uppercase' }}>Quelle / Link</label>
             <input value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))} placeholder="https://…"
               style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 10, fontSize: 14, boxSizing: 'border-box', outline: 'none' }} />
           </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4, textTransform: 'uppercase' }}>Datei / Bild hochladen</label>
-            <input type="file" accept="image/*,.pdf,.txt,.md" onChange={e => setUploadFile(e.target.files?.[0] || null)}
-              style={{ color: '#94a3b8', fontSize: 13 }} />
-            {uploadFile && <p style={{ color: '#4ade80', fontSize: 12, margin: '4px 0 0' }}>✓ {uploadFile.name} — wird von KI analysiert</p>}
-          </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={handleSave} disabled={loading} style={{ background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 600 }}>
-              {loading ? '⟳ Analysiert & speichert…' : 'Speichern'}
+              {loading ? '⟳ Speichert…' : 'Speichern'}
             </button>
-            <button onClick={() => setView('list')} style={{ background: 'none', color: '#64748b', border: '1px solid #1e293b', borderRadius: 8, padding: '10px 16px', cursor: 'pointer', fontSize: 14 }}>
-              Abbrechen
-            </button>
+            <button onClick={() => setView('list')} style={{ background: 'none', color: '#64748b', border: '1px solid #1e293b', borderRadius: 8, padding: '10px 16px', cursor: 'pointer', fontSize: 14 }}>Abbrechen</button>
           </div>
         </div>
       )}
