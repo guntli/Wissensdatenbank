@@ -79,29 +79,48 @@ export default function Home() {
 
   const handleLogout = async () => { await supabase.auth.signOut(); setEntries([]); setView('list'); };
 
-  const handleAnalyze = async () => {
+const handleAnalyze = async () => {
     if (!uploadFile) return;
     setAnalyzing(true);
     setAnalyzeError('');
     try {
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const result = reader.result as string;
-          if (!result || !result.includes(',')) { reject(new Error('FileReader result ungültig')); return; }
-          resolve(result.split(',')[1]);
-        };
-        reader.onerror = () => reject(new Error('FileReader Fehler'));
-        reader.readAsDataURL(uploadFile);
-      });
-
-      if (!base64) throw new Error('base64 leer');
+      // Bild verkleinern und zu JPEG konvertieren
+      const compressImage = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          const url = URL.createObjectURL(file);
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX = 1024;
+            let w = img.width, h = img.height;
+            if (w > MAX || h > MAX) {
+              if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+              else { w = Math.round(w * MAX / h); h = MAX; }
+            }
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0, w, h);
+            const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+            URL.revokeObjectURL(url);
+            resolve(base64);
+          };
+          img.onerror = reject;
+          img.src = url;
+        });
+      };
 
       const isPdf = uploadFile.type === 'application/pdf';
       const isText = uploadFile.type.startsWith('text/');
       let body: any;
 
       if (isPdf) {
+        const reader = new FileReader();
+        const base64 = await new Promise<string>((resolve, reject) => {
+          reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(uploadFile);
+        });
         body = { content: [
           { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
           { type: 'text', text: 'Fasse den Inhalt dieses Dokuments auf Deutsch zusammen.' }
@@ -110,8 +129,9 @@ export default function Home() {
         const text = await uploadFile.text();
         body = { content: [{ type: 'text', text: `Fasse folgenden Text auf Deutsch zusammen:\n\n${text.slice(0, 8000)}` }] };
       } else {
-        const mimeType = uploadFile.type && uploadFile.type.startsWith('image/') ? uploadFile.type : 'image/jpeg';
-        body = { base64, mimeType, content: [] };
+        // Bild — verkleinern und konvertieren
+        const base64 = await compressImage(uploadFile);
+        body = { base64, mimeType: 'image/jpeg', content: [] };
       }
 
       const response = await fetch('/api/analyze', {
@@ -121,10 +141,8 @@ export default function Home() {
       });
 
       if (!response.ok) throw new Error(`API Fehler: ${response.status}`);
-
       const data = await response.json();
       if (data.error) throw new Error(data.error);
-
       if (data.result) {
         setForm(f => ({ ...f, content: f.content ? `${f.content}\n\n---\nDateiinhalt:\n${data.result}` : data.result }));
         if (!form.title) setForm(f => ({ ...f, title: uploadFile.name.replace(/\.[^.]+$/, '') }));
@@ -132,11 +150,11 @@ export default function Home() {
         throw new Error('Kein Ergebnis von der KI');
       }
     } catch (e: any) {
-      console.error('Analyze error:', e);
       setAnalyzeError('Fehler: ' + (e?.message || 'Unbekannter Fehler'));
     }
     setAnalyzing(false);
   };
+
 
   const handleSave = async () => {
     if (!form.title || !form.content) return;
