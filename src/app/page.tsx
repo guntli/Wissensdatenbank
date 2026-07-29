@@ -246,7 +246,7 @@ export default function Home() {
             {uploadFile && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <span style={{ color: '#4ade80', fontSize: 12 }}>✓ {uploadFile.name}</span>
-                <button onClick={handleAnalyze} disabled={analyzing}
+               <button onClick={(e) => { e.preventDefault(); handleAnalyze(); }} disabled={analyzing}
                   style={{ background: analyzing ? '#1e293b' : 'linear-gradient(135deg,#1e3a5f,#0f2942)', color: analyzing ? '#64748b' : '#60a5fa', border: '1px solid #1e40af44', borderRadius: 6, padding: '6px 14px', cursor: analyzing ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 600 }}>
                   {analyzing ? '⟳ KI analysiert…' : '✦ Mit KI analysieren'}
                 </button>
