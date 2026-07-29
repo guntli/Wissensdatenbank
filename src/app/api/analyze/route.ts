@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const err = await response.text();
-      return NextResponse.json({ error: `Anthropic Fehler: ${response.status} ${err}` }, { status: 500 });
+      return NextResponse.json({ error: `Anthropic ${response.status}: ${err.slice(0, 500)}` }, { status: 500 });
     }
 
     const data = await response.json();
