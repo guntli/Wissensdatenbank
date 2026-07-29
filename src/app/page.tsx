@@ -32,6 +32,7 @@ export default function Home() {
   const [answer, setAnswer] = useState('');
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState('');
   const [editingEntry, setEditingEntry] = useState<Entry | null>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [form, setForm] = useState({ title: '', content: '', category: 'Sonstiges', tags: '', source: '' });
@@ -81,16 +82,20 @@ export default function Home() {
   const handleAnalyze = async () => {
     if (!uploadFile) return;
     setAnalyzing(true);
+    setAnalyzeError('');
     try {
-      const reader = new FileReader();
       const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
         reader.onloadend = () => {
           const result = reader.result as string;
+          if (!result || !result.includes(',')) { reject(new Error('FileReader result ungültig')); return; }
           resolve(result.split(',')[1]);
         };
-        reader.onerror = reject;
+        reader.onerror = () => reject(new Error('FileReader Fehler'));
         reader.readAsDataURL(uploadFile);
       });
+
+      if (!base64) throw new Error('base64 leer');
 
       const isPdf = uploadFile.type === 'application/pdf';
       const isText = uploadFile.type.startsWith('text/');
@@ -114,12 +119,22 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
         body: JSON.stringify(body)
       });
+
+      if (!response.ok) throw new Error(`API Fehler: ${response.status}`);
+
       const data = await response.json();
+      if (data.error) throw new Error(data.error);
+
       if (data.result) {
         setForm(f => ({ ...f, content: f.content ? `${f.content}\n\n---\nDateiinhalt:\n${data.result}` : data.result }));
         if (!form.title) setForm(f => ({ ...f, title: uploadFile.name.replace(/\.[^.]+$/, '') }));
+      } else {
+        throw new Error('Kein Ergebnis von der KI');
       }
-    } catch (e) { console.error('Analyze error:', e); }
+    } catch (e: any) {
+      console.error('Analyze error:', e);
+      setAnalyzeError('Fehler: ' + (e?.message || 'Unbekannter Fehler'));
+    }
     setAnalyzing(false);
   };
 
@@ -241,15 +256,20 @@ export default function Home() {
           <h2 style={{ margin: '0 0 16px', fontSize: 16 }}>{view === 'new' ? 'Neuer Eintrag' : 'Eintrag bearbeiten'}</h2>
           <div style={{ marginBottom: 16, background: '#020817', border: '1px solid #1e293b', borderRadius: 8, padding: 14 }}>
             <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 8, textTransform: 'uppercase' }}>Datei / Bild hochladen</label>
-            <input type="file" accept="image/*,.pdf,.txt,.md" onChange={e => setUploadFile(e.target.files?.[0] || null)}
+            <input type="file" accept="image/*,.pdf,.txt,.md" onChange={e => { setUploadFile(e.target.files?.[0] || null); setAnalyzeError(''); }}
               style={{ color: '#94a3b8', fontSize: 13, marginBottom: 10, display: 'block' }} />
             {uploadFile && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ color: '#4ade80', fontSize: 12 }}>✓ {uploadFile.name}</span>
-               <div onTouchEnd={(e) => { e.preventDefault(); if (!analyzing) handleAnalyze(); }} onClick={(e) => { e.preventDefault(); if (!analyzing) handleAnalyze(); }}
-  style={{ background: analyzing ? '#1e293b' : 'linear-gradient(135deg,#1e3a5f,#0f2942)', color: analyzing ? '#64748b' : '#60a5fa', border: '1px solid #1e40af44', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontWeight: 600, display: 'inline-block', userSelect: 'none' as const, WebkitUserSelect: 'none' as const }}>
-  {analyzing ? '⟳ KI analysiert…' : '✦ Mit KI analysieren'}
-</div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+                  <span style={{ color: '#4ade80', fontSize: 12 }}>✓ {uploadFile.name} ({uploadFile.type || 'unbekannt'})</span>
+                </div>
+                <button
+                  onClick={handleAnalyze}
+                  disabled={analyzing}
+                  style={{ background: analyzing ? '#1e293b' : 'linear-gradient(135deg,#1e3a5f,#0f2942)', color: analyzing ? '#64748b' : '#60a5fa', border: '1px solid #1e40af44', borderRadius: 6, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: analyzing ? 'not-allowed' : 'pointer', width: '100%', marginTop: 4 }}>
+                  {analyzing ? '⟳ KI analysiert…' : '✦ Mit KI analysieren'}
+                </button>
+                {analyzeError && <p style={{ color: '#ef4444', fontSize: 12, margin: '6px 0 0' }}>{analyzeError}</p>}
               </div>
             )}
           </div>
