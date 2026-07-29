@@ -41,7 +41,10 @@ export default function Home() {
       setSession(session);
       setAuthLoading(false);
     });
-    supabase.auth.onAuthStateChange((_event, session) => setSession(session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => { if (session) loadEntries(); }, [session]);
@@ -55,7 +58,15 @@ export default function Home() {
   const handleLogin = async () => {
     setAuthError('');
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) setAuthError('Login fehlgeschlagen. Bitte prüfe E-Mail und Passwort.');
+    if (error) {
+      if (error.message.includes('Invalid login credentials')) {
+        setAuthError('Falsches Passwort oder E-Mail.');
+      } else if (error.message.includes('Email not confirmed')) {
+        setAuthError('E-Mail noch nicht bestätigt.');
+      } else {
+        setAuthError('Login fehlgeschlagen: ' + error.message);
+      }
+    }
   };
 
   const handleSignUp = async () => {
