@@ -8,15 +8,11 @@ export async function POST(request: NextRequest) {
     let messages: any[];
 
     if (base64 && mimeType) {
-      // Bild
-      const safeMime = mimeType.includes('heic') || mimeType.includes('heif') || !mimeType.startsWith('image/')
-        ? 'image/jpeg'
-        : mimeType;
-
+      // Immer als image/jpeg behandeln für iOS Kompatibilität
       messages = [{
         role: 'user',
         content: [
-          { type: 'image', source: { type: 'base64', media_type: safeMime, data: base64 } },
+          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
           { type: 'text', text: 'Beschreibe und extrahiere alle Informationen aus diesem Bild auf Deutsch. Was ist zu sehen? Welcher Text ist vorhanden?' }
         ]
       }];
@@ -42,14 +38,14 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const err = await response.text();
-      return NextResponse.json({ error: `Anthropic Fehler: ${err}` }, { status: 500 });
+      return NextResponse.json({ error: `Anthropic Fehler: ${response.status} ${err}` }, { status: 500 });
     }
 
     const data = await response.json();
     const result = data.content?.[0]?.text;
 
     if (!result) {
-      return NextResponse.json({ error: `Anthropic Antwort leer: ${JSON.stringify(data)}` }, { status: 500 });
+      return NextResponse.json({ error: `Leer: ${JSON.stringify(data)}` }, { status: 500 });
     }
 
     return NextResponse.json({ result });
