@@ -86,8 +86,15 @@ export default function Home() {
   const handleSignUp = async () => {
     setAuthError('');
     const { error } = await supabase.auth.signUp({ email, password });
-    if (error) setAuthError(error.message);
-    else setAuthError('Bestätigungs-E-Mail gesendet! Bitte E-Mail prüfen.');
+    if (error) {
+      if (error.message.includes('nicht erlaubt') || error.message.includes('Database error saving new user')) {
+        setAuthError('Diese E-Mail-Adresse ist für die Registrierung nicht freigeschaltet.');
+      } else {
+        setAuthError(error.message);
+      }
+    } else {
+      setAuthError('Bestätigungs-E-Mail gesendet! Bitte E-Mail prüfen.');
+    }
   };
 
   const handleLogout = async () => { await supabase.auth.signOut(); setEntries([]); setView('list'); };
