@@ -21,7 +21,7 @@ async function analyzeFileWithClaude(file: Buffer, mimeType: string, fileName: s
       'x-api-key': process.env.ANTHROPIC_API_KEY!,
       'anthropic-version': '2023-06-01'
     },
-    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, messages: [{ role: 'user', content }] })
+    body: JSON.stringify({ model: 'claude-sonnet-4-5-20250929', max_tokens: 1000, messages: [{ role: 'user', content }] })
   });
 
   const data = await response.json();

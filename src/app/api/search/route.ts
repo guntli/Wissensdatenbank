@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       'anthropic-version': '2023-06-01'
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-5-20250929',
       max_tokens: 1000,
       messages: [{
         role: 'user',
@@ -32,6 +32,10 @@ export async function POST(request: NextRequest) {
       }]
     })
   });
+  if (!response.ok) {
+    const err = await response.text();
+    return NextResponse.json({ error: `Anthropic ${response.status}: ${err.slice(0, 500)}` }, { status: 500 });
+  }
   const aiData = await response.json();
   const answer = aiData.content?.[0]?.text || 'Keine Antwort gefunden.';
   return NextResponse.json({ answer });

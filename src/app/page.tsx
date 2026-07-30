@@ -213,7 +213,7 @@ const handleAnalyze = async () => {
       body: JSON.stringify({ question })
     });
     const data = await res.json();
-    setAnswer(data.answer);
+    setAnswer(data.error ? `Fehler: ${data.error}` : data.answer);
     setLoading(false);
   };
 
