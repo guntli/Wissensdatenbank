@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
         role: 'user',
         content: [
           { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
-          { type: 'text', text: 'Beschreibe und extrahiere alle Informationen aus diesem Bild auf Deutsch. Was ist zu sehen? Welcher Text ist vorhanden?' }
+          { type: 'text', text: 'Erstelle auf Deutsch eine gute Zusammenfassung dieses Bildes für ein persönliches Wissensarchiv: die wesentlichen Informationen und Inhalte, so dass man sie später wiederfinden und nutzen kann. Gib vorhandenen Text vollständig wieder. Schreibe als Fließtext ohne Überschriften, Aufzählungen oder einleitende Sätze wie "Das Bild zeigt…" – nur der eigentliche, relevante Inhalt.' }
         ]
       }];
     } else if (content && Array.isArray(content) && content.length > 0) {

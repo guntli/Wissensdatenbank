@@ -10,9 +10,9 @@ async function analyzeFileWithClaude(file: Buffer, mimeType: string, fileName: s
   const base64 = file.toString('base64');
   const content = isImage
     ? [{ type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
-       { type: 'text', text: 'Beschreibe und extrahiere alle Informationen aus diesem Bild auf Deutsch. Was ist zu sehen? Welcher Text ist vorhanden?' }]
+       { type: 'text', text: 'Erstelle auf Deutsch eine gute Zusammenfassung dieses Bildes für ein persönliches Wissensarchiv: die wesentlichen Informationen und Inhalte, so dass man sie später wiederfinden und nutzen kann. Gib vorhandenen Text vollständig wieder. Schreibe als Fließtext ohne Überschriften, Aufzählungen oder einleitende Sätze wie "Das Bild zeigt…" – nur der eigentliche, relevante Inhalt.' }]
     : [{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-       { type: 'text', text: 'Fasse den Inhalt dieses Dokuments auf Deutsch zusammen. Extrahiere alle wichtigen Informationen.' }];
+       { type: 'text', text: 'Erstelle auf Deutsch eine gute Zusammenfassung dieses Dokuments für ein persönliches Wissensarchiv: die wesentlichen Informationen und Inhalte, so dass man sie später wiederfinden und nutzen kann. Schreibe als Fließtext ohne Überschriften.' }];
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',

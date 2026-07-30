@@ -143,11 +143,11 @@ export default function Home() {
         });
         body = { content: [
           { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-          { type: 'text', text: 'Fasse den Inhalt dieses Dokuments auf Deutsch zusammen.' }
+          { type: 'text', text: 'Erstelle auf Deutsch eine gute Zusammenfassung dieses Dokuments für ein persönliches Wissensarchiv: die wesentlichen Informationen und Inhalte, so dass man sie später wiederfinden und nutzen kann. Schreibe als Fließtext ohne Überschriften.' }
         ]};
       } else if (isText) {
         const text = await uploadFile.text();
-        body = { content: [{ type: 'text', text: `Fasse folgenden Text auf Deutsch zusammen:\n\n${text.slice(0, 8000)}` }] };
+        body = { content: [{ type: 'text', text: `Erstelle auf Deutsch eine gute Zusammenfassung des folgenden Texts für ein persönliches Wissensarchiv: die wesentlichen Informationen und Inhalte, so dass man sie später wiederfinden und nutzen kann. Schreibe als Fließtext ohne Überschriften.\n\n${text.slice(0, 8000)}` }] };
       } else {
         // Bild — verkleinern und konvertieren
         const base64 = await compressImage(uploadFile);
