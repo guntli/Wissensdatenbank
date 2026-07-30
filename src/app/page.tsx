@@ -1,6 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import {
+  Gem, MessageCircle, Plus, ListChecks, LogOut, Sparkles, Loader2,
+  Upload, CheckCircle2, Pencil, Trash2, Send
+} from 'lucide-react';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,6 +21,17 @@ interface Entry {
   summary: string;
   created_at: string;
 }
+
+const inputClass =
+  'w-full bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 px-3 py-2.5 text-sm outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100';
+
+const labelClass = 'block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5';
+
+const primaryButtonClass =
+  'inline-flex items-center justify-center gap-2 bg-indigo-600 text-white rounded-lg px-5 py-2.5 text-sm font-semibold shadow-sm shadow-indigo-200 transition hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-indigo-600';
+
+const secondaryButtonClass =
+  'inline-flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-600 rounded-lg px-5 py-2.5 text-sm font-medium transition hover:bg-slate-50';
 
 export default function Home() {
   const [session, setSession] = useState<any>(null);
@@ -77,7 +92,7 @@ export default function Home() {
 
   const handleLogout = async () => { await supabase.auth.signOut(); setEntries([]); setView('list'); };
 
-const handleAnalyze = async () => {
+  const handleAnalyze = async () => {
     if (!uploadFile) return;
     setAnalyzing(true);
     setAnalyzeError('');
@@ -153,7 +168,6 @@ const handleAnalyze = async () => {
     setAnalyzing(false);
   };
 
-
   const handleSave = async () => {
     if (!form.title || !form.content) return;
     setLoading(true);
@@ -216,116 +230,156 @@ const handleAnalyze = async () => {
   };
 
   if (authLoading) return (
-    <div style={{ minHeight: '100vh', background: '#020817', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#e2e8f0' }}>Lädt…</div>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-400 text-sm">
+      <Loader2 className="animate-spin mr-2" size={18} /> Lädt…
+    </div>
   );
 
   if (!session) return (
-    <div style={{ minHeight: '100vh', background: '#020817', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 32, width: 'min(380px, 90vw)' }}>
-        <h1 style={{ color: '#f1f5f9', fontSize: 22, margin: '0 0 24px', textAlign: 'center' }}>◈ Wissensdatenbank</h1>
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ display: 'block', color: '#64748b', fontSize: 11, marginBottom: 4, textTransform: 'uppercase' }}>E-Mail</label>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-            style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 10, fontSize: 14, boxSizing: 'border-box', outline: 'none' }} />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 px-4">
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-xl shadow-slate-200/60 p-8 w-full max-w-sm">
+        <div className="flex flex-col items-center mb-7">
+          <div className="w-11 h-11 rounded-xl bg-indigo-600 flex items-center justify-center mb-3">
+            <Gem className="text-white" size={22} />
+          </div>
+          <h1 className="text-xl font-bold text-slate-900">Wissensdatenbank</h1>
         </div>
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', color: '#64748b', fontSize: 11, marginBottom: 4, textTransform: 'uppercase' }}>Passwort</label>
+        <div className="mb-4">
+          <label className={labelClass}>E-Mail</label>
+          <input type="email" value={email} onChange={e => setEmail(e.target.value)} className={inputClass} />
+        </div>
+        <div className="mb-5">
+          <label className={labelClass}>Passwort</label>
           <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleLogin()}
-            style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 10, fontSize: 14, boxSizing: 'border-box', outline: 'none' }} />
+            onKeyDown={e => e.key === 'Enter' && handleLogin()} className={inputClass} />
         </div>
-        {authError && <p style={{ color: authError.includes('gesendet') ? '#4ade80' : '#ef4444', fontSize: 13, margin: '0 0 12px' }}>{authError}</p>}
-        <button onClick={handleLogin} style={{ width: '100%', background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 8, padding: '11px', fontSize: 14, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>Anmelden</button>
-        <button onClick={handleSignUp} style={{ width: '100%', background: 'none', color: '#64748b', border: '1px solid #1e293b', borderRadius: 8, padding: '11px', fontSize: 14, cursor: 'pointer' }}>Konto erstellen</button>
+        {authError && (
+          <p className={`text-sm mb-3 ${authError.includes('gesendet') ? 'text-emerald-600' : 'text-red-600'}`}>{authError}</p>
+        )}
+        <button onClick={handleLogin} className={`${primaryButtonClass} w-full mb-2`}>Anmelden</button>
+        <button onClick={handleSignUp} className={`${secondaryButtonClass} w-full`}>Konto erstellen</button>
       </div>
     </div>
   );
 
   return (
-    <main style={{ maxWidth: 680, margin: '0 auto', padding: '20px 16px', fontFamily: 'system-ui, sans-serif', background: '#020817', minHeight: '100vh', color: '#e2e8f0' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>◈ Wissensdatenbank</h1>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button onClick={() => setView('ask')} style={{ background: view === 'ask' ? '#1d4ed8' : '#1e293b', color: '#e2e8f0', border: 'none', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontSize: 12 }}>💬 Fragen</button>
-          <button onClick={() => { setEditingEntry(null); setForm({ title: '', content: '' }); setUploadFile(null); setView('new'); }} style={{ background: view === 'new' ? '#1d4ed8' : '#1e293b', color: '#e2e8f0', border: 'none', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontSize: 12 }}>+ Neu</button>
-          <button onClick={() => setView('list')} style={{ background: view === 'list' ? '#1d4ed8' : '#1e293b', color: '#e2e8f0', border: 'none', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontSize: 12 }}>📋 Liste</button>
-          <button onClick={handleLogout} style={{ background: 'none', color: '#64748b', border: '1px solid #1e293b', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontSize: 12 }}>Logout</button>
+    <main className="min-h-screen bg-slate-50">
+      <div className="max-w-2xl mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-7">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center">
+              <Gem className="text-white" size={18} />
+            </div>
+            <h1 className="text-lg font-bold text-slate-900">Wissensdatenbank</h1>
+          </div>
+          <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
+            <button onClick={() => setView('ask')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${view === 'ask' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+              <MessageCircle size={14} /> Fragen
+            </button>
+            <button onClick={() => { setEditingEntry(null); setForm({ title: '', content: '' }); setUploadFile(null); setView('new'); }}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${view === 'new' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+              <Plus size={14} /> Neu
+            </button>
+            <button onClick={() => setView('list')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${view === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+              <ListChecks size={14} /> Liste
+            </button>
+            <div className="w-px h-5 bg-slate-200 mx-1" />
+            <button onClick={handleLogout} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400 hover:bg-slate-50 transition">
+              <LogOut size={14} />
+            </button>
+          </div>
         </div>
-      </div>
 
-      {view === 'ask' && (
-        <div style={{ background: '#0f172a', borderRadius: 12, padding: 20, marginBottom: 20 }}>
-          <h2 style={{ margin: '0 0 16px', fontSize: 16 }}>Wissen abfragen</h2>
-          <textarea placeholder="Stelle eine Frage zu deinem Wissen…" value={question} onChange={e => setQuestion(e.target.value)}
-            style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 12, fontSize: 14, minHeight: 80, resize: 'vertical', boxSizing: 'border-box', outline: 'none' }} />
-          <button onClick={handleAsk} disabled={loading} style={{ marginTop: 10, background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 600 }}>
-            {loading ? '⟳ Suche…' : '✦ Antwort generieren'}
-          </button>
-          {answer && (
-            <div style={{ marginTop: 16, background: '#020817', border: '1px solid #1e3a5f', borderRadius: 8, padding: 16, fontSize: 14, lineHeight: 1.7, color: '#94a3b8' }}>{answer}</div>
-          )}
-        </div>
-      )}
-
-      {(view === 'new' || view === 'edit') && (
-        <div style={{ background: '#0f172a', borderRadius: 12, padding: 20, marginBottom: 20 }}>
-          <h2 style={{ margin: '0 0 16px', fontSize: 16 }}>{view === 'new' ? 'Neuer Eintrag' : 'Eintrag bearbeiten'}</h2>
-          <div style={{ marginBottom: 16, background: '#020817', border: '1px solid #1e293b', borderRadius: 8, padding: 14 }}>
-            <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 8, textTransform: 'uppercase' }}>Datei / Bild hochladen</label>
-            <input type="file" accept="image/*,.pdf,.txt,.md" onChange={e => { setUploadFile(e.target.files?.[0] || null); setAnalyzeError(''); }}
-              style={{ color: '#94a3b8', fontSize: 13, marginBottom: 10, display: 'block' }} />
-            {uploadFile && (
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
-                  <span style={{ color: '#4ade80', fontSize: 12 }}>✓ {uploadFile.name} ({uploadFile.type || 'unbekannt'})</span>
-                </div>
-                <button
-                  onClick={handleAnalyze}
-                  disabled={analyzing}
-                  style={{ background: analyzing ? '#1e293b' : 'linear-gradient(135deg,#1e3a5f,#0f2942)', color: analyzing ? '#64748b' : '#60a5fa', border: '1px solid #1e40af44', borderRadius: 6, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: analyzing ? 'not-allowed' : 'pointer', width: '100%', marginTop: 4 }}>
-                  {analyzing ? '⟳ KI analysiert…' : '✦ Mit KI analysieren'}
-                </button>
-                {analyzeError && <p style={{ color: '#ef4444', fontSize: 12, margin: '6px 0 0' }}>{analyzeError}</p>}
-              </div>
+        {view === 'ask' && (
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 mb-5">
+            <h2 className="text-base font-semibold text-slate-900 mb-4">Wissen abfragen</h2>
+            <textarea placeholder="Stelle eine Frage zu deinem Wissen…" value={question} onChange={e => setQuestion(e.target.value)}
+              className={`${inputClass} min-h-24 resize-y`} />
+            <button onClick={handleAsk} disabled={loading} className={`${primaryButtonClass} mt-3`}>
+              {loading ? <><Loader2 className="animate-spin" size={16} /> Suche…</> : <><Send size={16} /> Antwort generieren</>}
+            </button>
+            {answer && (
+              <div className="mt-4 bg-indigo-50/60 border border-indigo-100 rounded-xl p-4 text-sm leading-7 text-slate-700 whitespace-pre-wrap">{answer}</div>
             )}
           </div>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4, textTransform: 'uppercase' }}>Titel</label>
-            <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-              style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 10, fontSize: 14, boxSizing: 'border-box', outline: 'none' }} />
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', fontSize: 11, color: '#64748b', marginBottom: 4, textTransform: 'uppercase' }}>Inhalt / KI-Analyse</label>
-            <textarea value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
-              placeholder="Direkt eingeben oder Datei hochladen und analysieren lassen…"
-              style={{ width: '100%', background: '#020817', border: '1px solid #1e293b', borderRadius: 8, color: '#e2e8f0', padding: 10, fontSize: 14, minHeight: 120, resize: 'vertical', boxSizing: 'border-box', outline: 'none' }} />
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={handleSave} disabled={loading} style={{ background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: 14, fontWeight: 600 }}>
-              {loading ? '⟳ Speichert…' : 'Speichern'}
-            </button>
-            <button onClick={() => setView('list')} style={{ background: 'none', color: '#64748b', border: '1px solid #1e293b', borderRadius: 8, padding: '10px 16px', cursor: 'pointer', fontSize: 14 }}>Abbrechen</button>
-          </div>
-        </div>
-      )}
+        )}
 
-      {view === 'list' && (
-        <div>
-          {entries.length === 0 && <p style={{ color: '#475569', textAlign: 'center', padding: 40 }}>Noch keine Einträge. Erstelle deinen ersten!</p>}
-          {entries.map(entry => (
-            <div key={entry.id} style={{ background: '#0f172a', borderRadius: 12, padding: 16, marginBottom: 12, borderLeft: '3px solid #1d4ed8' }}>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button onClick={() => handleEdit(entry)} style={{ background: 'none', border: '1px solid #1e293b', color: '#64748b', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', fontSize: 11 }}>✏️</button>
-                  <button onClick={() => handleDelete(entry.id)} style={{ background: 'none', border: '1px solid #450a0a44', color: '#ef4444', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', fontSize: 11 }}>🗑️</button>
+        {(view === 'new' || view === 'edit') && (
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 mb-5">
+            <h2 className="text-base font-semibold text-slate-900 mb-4">{view === 'new' ? 'Neuer Eintrag' : 'Eintrag bearbeiten'}</h2>
+
+            <div className="mb-5 bg-slate-50 border border-dashed border-slate-300 rounded-xl p-4">
+              <label className={labelClass}>Datei / Bild hochladen</label>
+              <label className="flex items-center gap-2 text-sm text-slate-500 cursor-pointer hover:text-indigo-600 transition w-fit">
+                <Upload size={16} />
+                <span>Datei auswählen</span>
+                <input type="file" accept="image/*,.pdf,.txt,.md" onChange={e => { setUploadFile(e.target.files?.[0] || null); setAnalyzeError(''); }}
+                  className="hidden" />
+              </label>
+              {uploadFile && (
+                <div className="mt-3">
+                  <div className="flex items-center gap-1.5 mb-2.5">
+                    <CheckCircle2 className="text-emerald-500" size={15} />
+                    <span className="text-xs text-emerald-700">{uploadFile.name} ({uploadFile.type || 'unbekannt'})</span>
+                  </div>
+                  <button onClick={handleAnalyze} disabled={analyzing}
+                    className="w-full inline-flex items-center justify-center gap-2 bg-indigo-600 text-white rounded-lg px-4 py-2 text-sm font-semibold shadow-sm shadow-indigo-200 transition hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    {analyzing ? <><Loader2 className="animate-spin" size={15} /> KI analysiert…</> : <><Sparkles size={15} /> Mit KI analysieren</>}
+                  </button>
+                  {analyzeError && <p className="text-red-600 text-xs mt-1.5">{analyzeError}</p>}
                 </div>
-              </div>
-              <h3 style={{ margin: '0 0 6px', fontSize: 15, color: '#f1f5f9' }}>{entry.title}</h3>
-              <p style={{ margin: 0, fontSize: 13, color: '#64748b', lineHeight: 1.6 }}>{entry.content.slice(0, 200)}{entry.content.length > 200 ? '…' : ''}</p>
+              )}
             </div>
-          ))}
-        </div>
-      )}
+
+            <div className="mb-4">
+              <label className={labelClass}>Titel</label>
+              <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className={inputClass} />
+            </div>
+
+            <div className="mb-5">
+              <label className={labelClass}>Inhalt / KI-Analyse</label>
+              <textarea value={form.content} onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
+                placeholder="Direkt eingeben oder Datei hochladen und analysieren lassen…"
+                className={`${inputClass} min-h-32 resize-y`} />
+            </div>
+
+            <div className="flex gap-2">
+              <button onClick={handleSave} disabled={loading} className={primaryButtonClass}>
+                {loading ? <><Loader2 className="animate-spin" size={16} /> Speichert…</> : 'Speichern'}
+              </button>
+              <button onClick={() => setView('list')} className={secondaryButtonClass}>Abbrechen</button>
+            </div>
+          </div>
+        )}
+
+        {view === 'list' && (
+          <div className="space-y-3">
+            {entries.length === 0 && (
+              <div className="text-center py-16 text-slate-400 text-sm bg-white border border-dashed border-slate-200 rounded-2xl">
+                Noch keine Einträge. Erstelle deinen ersten!
+              </div>
+            )}
+            {entries.map(entry => (
+              <div key={entry.id} className="group bg-white border border-slate-200 rounded-xl p-4 shadow-sm transition hover:shadow-md hover:border-slate-300">
+                <div className="flex justify-between items-start gap-3">
+                  <h3 className="font-semibold text-slate-900 text-sm">{entry.title}</h3>
+                  <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition">
+                    <button onClick={() => handleEdit(entry)} className="text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md p-1.5 transition">
+                      <Pencil size={14} />
+                    </button>
+                    <button onClick={() => handleDelete(entry.id)} className="text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md p-1.5 transition">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+                <p className="text-sm text-slate-500 leading-6 mt-1.5">{entry.content.slice(0, 200)}{entry.content.length > 200 ? '…' : ''}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </main>
   );
 }
