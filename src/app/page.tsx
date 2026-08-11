@@ -23,7 +23,7 @@ interface Entry {
 }
 
 const inputClass =
-  'w-full bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 px-3 py-2.5 text-sm outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100';
+  'w-full bg-white border border-slate-200 rounded-lg text-slate-900 placeholder:text-slate-400 px-3 py-2.5 text-base sm:text-sm outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100';
 
 const labelClass = 'block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5';
 
@@ -272,31 +272,31 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-50">
       <div className="max-w-2xl mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-7">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0">
               <Gem className="text-white" size={18} />
             </div>
-            <h1 className="text-lg font-bold text-slate-900">Wissensdatenbank</h1>
+            <h1 className="text-lg font-bold text-slate-900 truncate">Wissensdatenbank</h1>
           </div>
-          <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
-            <button onClick={() => setView('ask')}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${view === 'ask' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
-              <MessageCircle size={14} /> Fragen
-            </button>
-            <button onClick={() => { setEditingEntry(null); setForm({ title: '', content: '' }); setUploadFile(null); setView('new'); }}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${view === 'new' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
-              <Plus size={14} /> Neu
-            </button>
-            <button onClick={() => setView('list')}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${view === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
-              <ListChecks size={14} /> Liste
-            </button>
-            <div className="w-px h-5 bg-slate-200 mx-1" />
-            <button onClick={handleLogout} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-400 hover:bg-slate-50 transition">
-              <LogOut size={14} />
-            </button>
-          </div>
+          <button onClick={handleLogout}
+            className="shrink-0 flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-400 hover:bg-white hover:text-slate-600 border border-transparent hover:border-slate-200 transition">
+            <LogOut size={16} />
+          </button>
+        </div>
+        <div className="grid grid-cols-3 gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm mb-7">
+          <button onClick={() => setView('ask')}
+            className={`flex items-center justify-center gap-1.5 rounded-lg py-2.5 sm:py-1.5 text-xs font-semibold transition ${view === 'ask' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+            <MessageCircle size={14} /> Fragen
+          </button>
+          <button onClick={() => { setEditingEntry(null); setForm({ title: '', content: '' }); setUploadFile(null); setView('new'); }}
+            className={`flex items-center justify-center gap-1.5 rounded-lg py-2.5 sm:py-1.5 text-xs font-semibold transition ${view === 'new' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+            <Plus size={14} /> Neu
+          </button>
+          <button onClick={() => setView('list')}
+            className={`flex items-center justify-center gap-1.5 rounded-lg py-2.5 sm:py-1.5 text-xs font-semibold transition ${view === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+            <ListChecks size={14} /> Liste
+          </button>
         </div>
 
         {view === 'ask' && (
@@ -371,8 +371,8 @@ export default function Home() {
             {entries.map(entry => (
               <div key={entry.id} className="group bg-white border border-slate-200 rounded-xl p-4 shadow-sm transition hover:shadow-md hover:border-slate-300">
                 <div className="flex justify-between items-start gap-3">
-                  <h3 className="font-semibold text-slate-900 text-sm">{entry.title}</h3>
-                  <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition">
+                  <h3 className="font-semibold text-slate-900 text-sm min-w-0 break-words">{entry.title}</h3>
+                  <div className="flex gap-1 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition">
                     <button onClick={() => handleEdit(entry)} className="text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md p-1.5 transition">
                       <Pencil size={14} />
                     </button>
